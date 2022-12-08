@@ -1,5 +1,6 @@
 [bits 16]
 [org 0x7c00]
+[org 0x7c00]
 
 ; where to load the kernel to
 KERNEL_OFFSET equ 0x1000
@@ -8,6 +9,8 @@ KERNEL_OFFSET equ 0x1000
 mov ah, 0x0e
 mov al, 'a'
 int 0x10
+mov al, 0x00
+mov ah, 0x00
 
 ; BIOS sets boot drive in 'dl'; store for later use
 mov [BOOT_DRIVE], dl
@@ -28,7 +31,7 @@ jmp $
 [bits 16]
 load_kernel:
     mov bx, KERNEL_OFFSET ; bx -> destination
-    mov dh, 2             ; dh -> num sectors
+    mov dh, 4             ; dh -> num sectors
     mov dl, [BOOT_DRIVE]  ; dl -> disk
     call disk_load
     ret

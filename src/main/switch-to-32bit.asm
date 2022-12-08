@@ -1,5 +1,12 @@
 [bits 16]
 switch_to_32bit:
+    ; Test for if its running
+    mov ah, 0x0e
+    mov al, 'd'
+    int 0x10
+    mov al, 0x00
+    mov ah, 0x00
+
     cli                     ; 1. disable interrupts
     lgdt [gdt_descriptor]   ; 2. load GDT descriptor
     mov eax, cr0

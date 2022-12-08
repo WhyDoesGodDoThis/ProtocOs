@@ -1,4 +1,11 @@
 disk_load:
+    ; Test for if its running
+    mov ah, 0x0e
+    mov al, 'b'
+    int 0x10
+    mov al, 0x00
+    mov ah, 0x00
+
     pusha
     push dx
 
@@ -23,10 +30,21 @@ disk_load:
     ret
 
 disk_error:
-    jmp disk_loop
+    ; Test for if its running
+    mov ah, 0x0e
+    mov al, 'O'
+    int 0x10
+    mov al, 0x00
+    mov ah, 0x00
+
+    jmp $
 
 sectors_error:
-    jmp disk_loop
+    ; Test for if its running
+    mov ah, 0x0e
+    mov al, '%'
+    int 0x10
+    mov al, 0x00
+    mov ah, 0x00
 
-disk_loop:
     jmp $

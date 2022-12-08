@@ -2,6 +2,13 @@
 
 ; null segment descriptor
 gdt_start:
+    ; Test for if its running
+    mov ah, 0x0e
+    mov al, 'c'
+    int 0x10
+    mov al, 0x00
+    mov ah, 0x00
+
     dq 0x0
 
 ; code segment descriptor
