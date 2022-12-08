@@ -4,6 +4,11 @@
 ; where to load the kernel to
 KERNEL_OFFSET equ 0x1000
 
+; Test for if its running
+mov ah, 0x0e
+mov al, 'a'
+int 0x10
+
 ; BIOS sets boot drive in 'dl'; store for later use
 mov [BOOT_DRIVE], dl
 
@@ -16,9 +21,9 @@ call switch_to_32bit
 
 jmp $
 
-%include "disk.asm"
-%include "gdt.asm"
-%include "switch-to-32bit.asm"
+%include "src\main\disk.asm"
+%include "src\main\gdt.asm"
+%include "src\main\switch-to-32bit.asm"
 
 [bits 16]
 load_kernel:
