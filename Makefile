@@ -5,23 +5,23 @@
 # First rule is the one executed when no parameters are fed to the Makefile
 all: run
 
-kernel.bin: kernel-entry.o kernel.o
-    ld -m elf_i386 -o $@ -Ttext 0x1000 $^ --oformat binary
+kernelEntry.obj: kernelEntry.asm
+	nasm $< -f elf -o $@
 
-kernel-entry.o: kernel-entry.asm
-    nasm $< -f elf -o $@
+kernel.obj: kernel.c
+	gcc -o3 -ffreestanding -c $< -o $@
 
-kernel.o: kernel.c
-    gcc -m32 -ffreestanding -c $< -o $@
+boot.bin: boot.asm
+	nasm $< -f bin -o $@
+	
+kernel.bin: kernelEntry.obj kernel.obj
+	link $^ > $@
 
-mbr.bin: mbr.asm
-    nasm $< -f bin -o $@
+os_image.bin: boot.bin kernel.bin
+	type $^ > $@
 
-os-image.bin: mbr.bin kernel.bin
-    cat $^ > $@
-
-run: os-image.bin
-    qemu-system-i386 -fda $<
+run: os_image.bin
+	qemu\qemu-system-x86_64 $<
 
 clean:
-    $(RM) *.bin *.o *.dis
+	$(RM) *.bin *.obj
