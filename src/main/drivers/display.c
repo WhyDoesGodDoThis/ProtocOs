@@ -1,60 +1,48 @@
-#include"display.h"
-
-unsigned char port_byte_in(unsigned short port) {
-    unsigned char result;
-    __asm__("in %%dx, %%al" : "=a" (result) : "d" (port));
-    return result;
-}
-
-void port_byte_out(unsigned short port, unsigned char data) {
-    __asm__("out %%al, %%dx" : : "a" (data), "d" (port));
-}
+#include "numbers.h"
+#include "display.h"
+#include "ports.h"
+#include "memory.h"
+#include "ports.c"
+#include "memory.c"
 
 void set_cursor(int offset) {
     offset /= 2;
-    port_byte_out(VGA_CTRL_REGISTER, VGA_OFFSET_HIGH);
-    port_byte_out(VGA_DATA_REGISTER, (unsigned char) (offset >> 8));
-    port_byte_out(VGA_CTRL_REGISTER, VGA_OFFSET_LOW);
-    port_byte_out(VGA_DATA_REGISTER, (unsigned char) (offset & 0xff));
+    port_byte_out(REG_SCREEN_CTRL, 14);
+    port_byte_out(REG_SCREEN_DATA, (unsigned char) (offset >> 8));
+    port_byte_out(REG_SCREEN_CTRL, 15);
+    port_byte_out(REG_SCREEN_DATA, (unsigned char) (offset & 0xff));
 }
 
 int get_cursor() {
-    port_byte_out(VGA_CTRL_REGISTER, VGA_OFFSET_HIGH);
-    int offset = port_byte_in(VGA_DATA_REGISTER) << 8;
-    port_byte_out(VGA_CTRL_REGISTER, VGA_OFFSET_LOW);
-    offset += port_byte_in(VGA_DATA_REGISTER);
+    port_byte_out(REG_SCREEN_CTRL, 14);
+    int offset = port_byte_in(REG_SCREEN_DATA) << 8; /* High byte: << 8 */
+    port_byte_out(REG_SCREEN_CTRL, 15);
+    offset += port_byte_in(REG_SCREEN_DATA);
     return offset * 2;
-}
-
-void set_char_at_video_memory(char character, int offset) {
-    unsigned char *vidmem = (unsigned char *) VIDEO_ADDRESS;
-    vidmem[offset] = character;
-    vidmem[offset + 1] = WHITE_ON_BLACK;
-}
-
-int get_row_from_offset(int offset) {
-    return offset / (2 * MAX_COLS);
 }
 
 int get_offset(int col, int row) {
     return 2 * (row * MAX_COLS + col);
 }
 
+int get_row_from_offset(int offset) {
+    return offset / (2 * MAX_COLS);
+}
+
 int move_offset_to_new_line(int offset) {
     return get_offset(0, get_row_from_offset(offset) + 1);
 }
 
-void memory_copy(char *source, char *dest, int nbytes) {
-    int i;
-    for (i = 0; i < nbytes; i++) {
-        *(dest + i) = *(source + i);
-    }
+void set_char_at_video_memory(char character, int offset) {
+    data *vidmem = (data *) VIDEO_ADDRESS;
+    vidmem[offset] = character;
+    vidmem[offset + 1] = WHITE_ON_BLACK;
 }
 
 int scroll_ln(int offset) {
     memory_copy(
-            (char *) (get_offset(0, 1) + VIDEO_ADDRESS),
-            (char *) (get_offset(0, 0) + VIDEO_ADDRESS),
+            (data * )(get_offset(0, 1) + VIDEO_ADDRESS),
+            (data * )(get_offset(0, 0) + VIDEO_ADDRESS),
             MAX_COLS * (MAX_ROWS - 1) * 2
     );
 
@@ -83,9 +71,24 @@ void print_string(char *string) {
     set_cursor(offset);
 }
 
+void print_nl() {
+    int newOffset = move_offset_to_new_line(get_cursor());
+    if (newOffset >= MAX_ROWS * MAX_COLS * 2) {
+        newOffset = scroll_ln(newOffset);
+    }
+    set_cursor(newOffset);
+}
+
 void clear_screen() {
-    for (int i = 0; i < MAX_COLS * MAX_ROWS; ++i) {
+    int screen_size = MAX_COLS * MAX_ROWS;
+    for (int i = 0; i < screen_size; ++i) {
         set_char_at_video_memory(' ', i * 2);
     }
     set_cursor(get_offset(0, 0));
+}
+
+void print_backspace() {
+    int newCursor = get_cursor() - 2;
+    set_char_at_video_memory(' ', newCursor);
+    set_cursor(newCursor);
 }

@@ -1,51 +1,91 @@
 [bits 16]
 [org 0x7c00]
-[org 0x7c00]
+; Bootloader code
 
-; where to load the kernel to
-KERNEL_OFFSET equ 0x1000
+mov bx, MSG_BOOTING
+call print16
+mov bx, MSG_16BIT_MODE
+call print16
 
-; Test for if its running
-mov ah, 0x0e
-mov al, 'a'
-int 0x10
-mov al, 0x00
-mov ah, 0x00
+; Set up the necessary data structures and registers
+mov ax, 0x0000
+mov ds, ax
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ss, ax
+mov esp, 0x7C00
 
-; BIOS sets boot drive in 'dl'; store for later use
-mov [BOOT_DRIVE], dl
+mov bx, MSG_LOAD_KERNEL
+call print16
 
-; setup stack
-mov bp, 0x9000
-mov sp, bp
+; Load the kernel file into memory
+mov ah, 0x02        ; Function code for read sector
+mov al, 0x03        ; Read 1 sector
+mov ch, 0x00        ; Track 0
+mov cl, 0x02        ; Sector 2
+mov dh, 0x00        ; Head 0
+mov dl, 0x80        ; Drive number (0x80 = first hard disk)
+int 0x13            ; Call the BIOS interrupt to read the sector
+jc failed           ; If theres an error jump to the load failed
 
-call load_kernel
-call switch_to_32bit
+mov bx, MSG_32BIT_MODE
+call print16
 
-jmp $
+; Set up the Global Descriptor Table (GDT)
+gdt:
+    dw 0x0000       ; Null descriptor
+    dw 0x0000
+    dd 0x00000000
 
-%include "src\main\disk.asm"
-%include "src\main\gdt.asm"
-%include "src\main\switch-to-32bit.asm"
+; Code segment descriptor
+gdt_code:
+    dw 0xFFFF       ; Limit (4 GB)
+    dw 0x0000       ; Base address (0)
+    db 0x00         ; Access byte
+    db 0x09         ; Granularity byte
+    db 0x00         ; Base address (high byte)
 
-[bits 16]
-load_kernel:
-    mov bx, KERNEL_OFFSET ; bx -> destination
-    mov dh, 4             ; dh -> num sectors
-    mov dl, [BOOT_DRIVE]  ; dl -> disk
-    call disk_load
-    ret
+; Data segment descriptor
+gdt_data:
+    dw 0xFFFF       ; Limit (4 GB)
+    dw 0x0000       ; Base address (0)
+    db 0x00         ; Access byte
+    db 0x09         ; Granularity byte
+    db 0x00         ; Base address (high byte)
 
-[bits 32]
-BEGIN_32BIT:
-    call KERNEL_OFFSET ; give control to the kernel
-    jmp $ ; loop in case kernel returns
+; Set up the GDT pointer
+gdt_ptr:
+    dw 0x27         ; Limit (sizeof(gdt)-1)
+    dd gdt          ; Base address of GDT
 
-; boot drive variable
-BOOT_DRIVE db 0
+; Load the GDT
+lgdt [gdt_ptr]
 
-; padding
-times 510 - ($-$$) db 0
+; Set up the code and data segment registers
+mov ax, gdt_code
+mov ds, ax
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ss, ax
+mov esi, 0x7E00   ; Kernel entry point
+mov ebx, 0x7C00   ; Kernel base address
+mov ecx, 0x0001   ; Kernel size (in sectors)
 
-; magic number
-dw 0xaa55
+; Switch to protected mode
+mov eax, cr0
+or eax, 1
+mov cr0, eax
+
+; Jump to the kernel entry point
+jmp esi
+
+; Printing code
+%include "src\main\print.asm"
+
+; Pad the bootloader to 510 bytes
+times 510-($-$$) db 0
+
+; Add the boot signature
+dw 0xAA55
